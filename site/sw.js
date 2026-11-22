@@ -1,4 +1,4 @@
-var C='mr-1795314605';
+var C='mr-1795341734';
 self.addEventListener('install',function(e){self.skipWaiting();e.waitUntil(caches.open(C).then(function(c){return c.addAll(['/','/theme.css','/app.js','/logic.js','/icon.svg'])}))});
 self.addEventListener('activate',function(e){e.waitUntil(caches.keys().then(function(k){return Promise.all(k.filter(function(x){return x!==C}).map(function(x){return caches.delete(x)}))}).then(function(){return self.clients.claim()}))});
 function keep(req,r){if(r&&r.ok){var c2=r.clone();caches.open(C).then(function(c){c.put(req,c2)})}return r}
