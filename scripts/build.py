@@ -247,7 +247,7 @@ def main():
     shutil.copytree(os.path.join(src,'js'),os.path.join(OUT,'js'))
     open(os.path.join(OUT,'js','csv.js'),'w').write('')  # CSV buttons are wired by app.js
     open(os.path.join(OUT,'js','poster.js'),'w').write("document.addEventListener('DOMContentLoaded',function(){var b=document.getElementById('pp');if(b)b.addEventListener('click',function(){window.print()})});")
-    for f in('manifest.webmanifest','icon.svg','robots.txt','_headers','icon-192.png','icon-512.png','og.png','config.js'):
+    for f in('manifest.webmanifest','icon.svg','robots.txt','_headers','icon-192.png','icon-512.png','og.png','config.js','_redirects'):
         p=os.path.join(ROOT,'static',f)
         if os.path.exists(p):shutil.copy(p,OUT)
     sw=open(os.path.join(ROOT,'static','sw.js')).read().replace('__BUILD__',BUILD);open(os.path.join(OUT,'sw.js'),'w').write(sw)
