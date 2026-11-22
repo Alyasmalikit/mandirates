@@ -1,6 +1,8 @@
-var C='mr-1795277623';
+var C='mr-1795314605';
 self.addEventListener('install',function(e){self.skipWaiting();e.waitUntil(caches.open(C).then(function(c){return c.addAll(['/','/theme.css','/app.js','/logic.js','/icon.svg'])}))});
 self.addEventListener('activate',function(e){e.waitUntil(caches.keys().then(function(k){return Promise.all(k.filter(function(x){return x!==C}).map(function(x){return caches.delete(x)}))}).then(function(){return self.clients.claim()}))});
-self.addEventListener('fetch',function(e){if(e.request.method!=='GET')return;var u=new URL(e.request.url);if(u.origin!==location.origin)return;
-if(u.pathname.indexOf('/api/')===0||u.pathname.indexOf('/data/')===0){e.respondWith(fetch(e.request).then(function(r){var c2=r.clone();caches.open(C).then(function(c){c.put(e.request,c2)});return r}).catch(function(){return caches.match(e.request)}));return}
-e.respondWith(caches.match(e.request).then(function(m){var n=fetch(e.request).then(function(r){var c2=r.clone();if(r.ok)caches.open(C).then(function(c){c.put(e.request,c2)});return r}).catch(function(){return m});return m||n}))});
+function keep(req,r){if(r&&r.ok){var c2=r.clone();caches.open(C).then(function(c){c.put(req,c2)})}return r}
+self.addEventListener('fetch',function(e){var q=e.request;if(q.method!=='GET')return;var u=new URL(q.url);if(u.origin!==location.origin)return;
+if(q.mode==='navigate'){e.respondWith(fetch(q).then(function(r){return keep(q,r)}).catch(function(){return caches.match(q).then(function(m){return m||caches.match('/')})}));return}
+if(u.pathname.indexOf('/api/')===0||u.pathname.indexOf('/data/')===0){e.respondWith(fetch(q).then(function(r){return keep(q,r)}).catch(function(){return caches.match(q)}));return}
+e.respondWith(caches.match(q).then(function(m){var n=fetch(q).then(function(r){return keep(q,r)}).catch(function(){return m});return m||n}))});
