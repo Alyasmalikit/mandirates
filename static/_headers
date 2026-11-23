@@ -9,3 +9,17 @@
   Cache-Control: no-cache
 /data/*
   Cache-Control: public, max-age=300
+/theme.css
+  Cache-Control: public, max-age=3600
+/app.js
+  Cache-Control: public, max-age=3600
+/logic.js
+  Cache-Control: public, max-age=3600
+/hi.js
+  Cache-Control: public, max-age=86400
+/js/*
+  Cache-Control: public, max-age=3600
+/icon-*.png
+  Cache-Control: public, max-age=604800
+/og.png
+  Cache-Control: public, max-age=604800
