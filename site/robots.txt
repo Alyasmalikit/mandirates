@@ -1,4 +1,7 @@
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /data/
 Disallow: /poster/
+
 Sitemap: https://mandirates.pages.dev/sitemap.xml
