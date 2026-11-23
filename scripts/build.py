@@ -63,6 +63,19 @@ def num(v):
 def dt(s):
     try:return datetime.datetime.strptime(str(s),'%d/%m/%Y')
     except:return datetime.datetime(1970,1,1)
+LAST=os.environ.get('LAST_FILE') or os.path.join(ROOT,'data','last.json');KEEP_DAYS=int(os.environ.get('KEEP_DAYS','3'))
+def merge_last(fresh):
+    # Early in the day only some mandis have reported. Keep each mandi's newest price from the last few days so pages stay full. Every row keeps its own date.
+    try:old=json.load(open(LAST,encoding='utf-8'))
+    except Exception:old=[]
+    best={}
+    for r in old+fresh:
+        k=(r['state'],r['district'],r['market'],r['commodity'],r['variety'])
+        if k not in best or dt(r['date'])>=dt(best[k]['date']):best[k]=r
+    allr=list(best.values());newest=max(dt(r['date']) for r in allr);cut=newest-datetime.timedelta(days=KEEP_DAYS)
+    kept=[r for r in allr if dt(r['date'])>=cut]
+    os.makedirs(os.path.dirname(LAST),exist_ok=True);json.dump(kept,open(LAST,'w',encoding='utf-8'),ensure_ascii=False,separators=(',',':'))
+    return kept
 def mark_odd(rows):
     g=collections.defaultdict(list)
     for r in rows:g[r['commodity']].append(r['md'])
@@ -158,7 +171,7 @@ def main():
         try:raw=fetch()
         except Exception as ex:sys.exit(f'Feed failed, site left unchanged: {ex}')
     else:raw=json.load(open(DATA,encoding='utf-8'))
-    rows=mark_odd(clean(raw))
+    fresh=clean(raw);rows=fresh if DEMO else merge_last(fresh);mark_odd(rows);carried=len(rows)-len(fresh) if not DEMO else 0
     if not rows:sys.exit('No valid rows, site left unchanged')
     if os.path.isdir(OUT):shutil.rmtree(OUT)
     os.makedirs(OUT)
@@ -276,27 +289,29 @@ def main():
     for c in cropn:
         if cropn[c]<3:continue
         L=sorted([r for r in rows if r['commodity']==c],key=lambda r:-r['md']);L=([x for x in L if not x['odd']] or L)[:25];cp=f'{R}crop/{slug(c)}/';top=L[0]
-        ans=f'The highest {c} price today is {rs(top["md"])} per quintal at {top["market"]}, {top["state"]}.'
+        pd=max((x['date'] for x in L),key=dt);fr=(pd==NOW.strftime('%d/%m/%Y'))
+        ans=f'The highest {c} price {"today is" if fr else "on "+nice(pd)+" was"} {rs(top["md"])} per quintal at {top["market"]}, {top["state"]}.'
         b=f'<section class="card"><p class="big">{E(ans)}</p><div class="tw"><table id="pt"><thead><tr><th>Mandi</th><th>State</th><th>Min</th><th>Modal</th><th>Max</th><th>Date</th></tr></thead><tbody>'+''.join(f'<tr{" class=best" if i==0 else ""}><td>{E(x["market"])}</td><td><a href="{R}{slug(x["state"])}/">{E(x["state"])}</a></td><td>{rs(x["mn"])}</td><td class="p">{rs(x["md"])}{" ⚠" if x.get("odd") else ""}</td><td>{rs(x["mx"])}</td><td>{E(x["date"])}</td></tr>' for i,x in enumerate(L))+f'</tbody></table></div><p><a class="btn g s" href="/compare/?crop={E(c)}">Compare mandis</a> <button class="btn g s" type="button" data-csv="pt" data-name="{slug(c)}-prices.csv">Download CSV</button></p></section>'
-        write(cp,shell(cp,f'{c} Price Today in India ({DD}) | MandiRates',ans[:155],f'{c} price today in India',ans,b,root+[(c,cp)],[{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":f"What is the highest {c} price today?","acceptedAnswer":{"@type":"Answer","text":ans}}]}],('js/csv.js',)))
+        write(cp,shell(cp,f'{c} Price Today in India ({nice(pd)}) | MandiRates',ans[:155],(f'{c} price today in India' if fr else f'{c} price in India: latest rates'),ans,b,root+[(c,cp)],[{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":f"What is the highest {c} price today?","acceptedAnswer":{"@type":"Answer","text":ans}}]}],('js/csv.js',)))
     for s in sorted(S):
-        sp=f'{R}{slug(s)}/';ds=sorted(S[s]);scr=root+[(s,sp)]
-        write(sp,shell(sp,f'Mandi Prices in {s} ({DD}) | MandiRates',f'Today’s mandi prices in {s} by district and crop, per quintal.',f'Mandi prices in {s}',f'Choose a district in {E(s)} to see today’s crop rates per quintal.','<section class="card"><div class="chips">'+''.join(f'<a href="{sp}{slug(d)}/">{E(d)} ({len(S[s][d])})</a>' for d in ds)+'</div></section>',scr))
+        sp=f'{R}{slug(s)}/';ds=sorted(S[s]);scr=root+[(s,sp)];spd=max((x['date'] for d in S[s] for c in S[s][d] for x in S[s][d][c]),key=dt)
+        write(sp,shell(sp,f'Mandi Prices in {s} ({nice(spd)}) | MandiRates',f'Today’s mandi prices in {s} by district and crop, per quintal.',f'Mandi prices in {s}',f'Choose a district in {E(s)} to see today’s crop rates per quintal.','<section class="card"><div class="chips">'+''.join(f'<a href="{sp}{slug(d)}/">{E(d)} ({len(S[s][d])})</a>' for d in ds)+'</div></section>',scr))
         for d in ds:
-            dp=f'{sp}{slug(d)}/';dcr=scr+[(d,dp)];items=''
+            dp=f'{sp}{slug(d)}/';dcr=scr+[(d,dp)];items='';dpd=max((x['date'] for c in S[s][d] for x in S[s][d][c]),key=dt)
             for c in sorted(S[s][d]):
                 m=best(sorted(S[s][d][c],key=lambda x:-x['md']))['md'];items+=f'<li><div>{(f"<a href=\"{dp}{slug(c)}/\">{E(c)}</a>") if (s,d,c) in allowed else E(c)}</div><div class="p">{rs(m)}</div></li>'
-            write(dp,shell(dp,f'Mandi Prices in {d}, {s} ({DD}) | MandiRates',f'Today’s mandi rates in {d}, {s}: crop prices per quintal.',f'Mandi prices in {d}, {s}',f'Latest crop prices in {E(d)} district, per quintal.',f'<section class="card"><h2>Crops</h2><p class="hint">Highest modal price in this district</p><ul class="mv">{items}</ul></section>',dcr))
+            write(dp,shell(dp,f'Mandi Prices in {d}, {s} ({nice(dpd)}) | MandiRates',f'Today’s mandi rates in {d}, {s}: crop prices per quintal.',f'Mandi prices in {d}, {s}',f'Latest crop prices in {E(d)} district, per quintal.',f'<section class="card"><h2>Crops</h2><p class="hint">Highest modal price in this district</p><ul class="mv">{items}</ul></section>',dcr))
             for c in sorted(S[s][d]):
                 if (s,d,c) not in allowed:continue
                 L=sorted(S[s][d][c],key=lambda x:-x['md']);cp=f'{dp}{slug(c)}/';top=best(L);low=min(x['mn'] for x in L);high=max(x['mx'] for x in L);date=max((x['date'] for x in L),key=dt)
-                plain=f'{c} price in {d} district today is {rs(top["md"])} per quintal (modal) at {top["market"]} mandi, ranging {rs(low)} to {rs(high)} across {len(L)} listing{"s" if len(L)>1 else ""}. Last updated {date}.'
+                fr2=(date==NOW.strftime('%d/%m/%Y'))
+                plain=f'{c} price in {d} district {"today is" if fr2 else "on "+nice(date)+" was"} {rs(top["md"])} per quintal (modal) at {top["market"]} mandi, ranging {rs(low)} to {rs(high)} across {len(L)} listing{"s" if len(L)>1 else ""}. Last updated {date}.'
                 ch=svg_chart(series_for(SD[s],top) or [],f'{c} price trend at {top["market"]}')
                 hist=f'<section class="card"><h2>Price trend at {E(top["market"])}</h2>{ch}</section>' if ch else f'<section class="card"><h2>Price trend</h2><p class="mut">History builds one day at a time. A chart appears here after a few days of saved prices.</p></section>'
                 sib=[x for x in sorted(S[s]) if x!=d and (s,x,c) in allowed][:8];oth=[x for x in sorted(S[s][d]) if x!=c and (s,d,x) in allowed][:8];rel=''
                 if sib or oth:rel='<section class="card"><h2>More prices nearby</h2>'+(f'<p class="hint">{E(c)} in other districts of {E(s)}</p><div class="chips">'+''.join(f'<a href="{sp}{slug(x)}/{slug(c)}/">{E(x)}</a>' for x in sib)+'</div>' if sib else '')+(f'<p class="hint">Other crops in {E(d)}</p><div class="chips">'+''.join(f'<a href="{dp}{slug(x)}/">{E(x)}</a>' for x in oth)+'</div>' if oth else '')+'</section>'
                 b=f'<section class="card"><p class="big">{E(plain)}</p>{table(L)}<p><a class="btn g s" href="/compare/?crop={E(c)}">Compare mandis</a> <button class="btn g s" type="button" data-csv="pt" data-name="{slug(c)}-{slug(d)}.csv">Download CSV</button></p></section>{hist}{rel}<section class="card"><h2>Frequently asked</h2><details open><summary>What is the {E(c)} price in {E(d)} today?</summary><p>{E(plain)}</p></details><details><summary>Where does this price come from?</summary><p>From the Government of India open data portal (Agmarknet). Confirm with the mandi before you trade.</p></details></section>'
-                write(cp,shell(cp,f'{c} Price in {d}, {s} ({DD}) | MandiRates',plain[:155],f'{c} price in {d} today',E(plain),b,dcr+[(c,cp)],[{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":f"What is the {c} price in {d} today?","acceptedAnswer":{"@type":"Answer","text":plain}}]}],('js/csv.js',)))
+                write(cp,shell(cp,f'{c} Price in {d}, {s} ({nice(date)}) | MandiRates',plain[:155],(f'{c} price in {d} today' if fr2 else f'{c} price in {d}: latest rates'),E(plain),b,dcr+[(c,cp)],[{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":f"What is the {c} price in {d} today?","acceptedAnswer":{"@type":"Answer","text":plain}}]}],('js/csv.js',)))
     # data + static
     os.makedirs(os.path.join(OUT,'data'),exist_ok=True)
     json.dump({'demo':DEMO,'updated':latest,'rows':rows},open(os.path.join(OUT,'data','latest.json'),'w',encoding='utf-8'),ensure_ascii=False,separators=(',',':'))
@@ -317,5 +332,5 @@ def main():
     files=[('sitemap-main.xml',main_u)]+[(f'sitemap-prices-{k+1}.xml',price_u[k*10000:(k+1)*10000]) for k in range((len(price_u)+9999)//10000)]
     for n,Lu in files:open(os.path.join(OUT,n),'w').write('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+''.join(f'<url><loc>{BASE+u}</loc><lastmod>{lm}</lastmod></url>' for u in Lu)+'</urlset>')
     open(os.path.join(OUT,'sitemap.xml'),'w').write('<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+''.join(f'<sitemap><loc>{BASE}/{n}</loc><lastmod>{lm}</lastmod></sitemap>' for n,_ in files)+'</sitemapindex>')
-    print(f'Built {len(written)} pages from {len(rows)} valid rows ({len(raw)-len(rows)} dropped); demo={DEMO}')
+    print(f'Built {len(written)} pages from {len(rows)} valid rows ({len(fresh)} fresh, {max(carried,0)} carried from earlier days); demo={DEMO}')
 if __name__=='__main__':main()
