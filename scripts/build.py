@@ -324,6 +324,8 @@ def main():
     for f in('manifest.webmanifest','icon.svg','robots.txt','_headers','icon-192.png','icon-512.png','og.png','config.js','_redirects'):
         p=os.path.join(ROOT,'static',f)
         if os.path.exists(p):shutil.copy(p,OUT)
+    for f in os.listdir(os.path.join(ROOT,'static')):
+        if re.fullmatch(r'google[0-9a-f]+\.html|BingSiteAuth\.xml|yandex_[0-9a-f]+\.html',f):shutil.copy(os.path.join(ROOT,'static',f),OUT)
     open(os.path.join(OUT,'robots.txt'),'w').write(f'User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /data/\nDisallow: /poster/\n\nSitemap: {BASE}/sitemap.xml\n')
     sw=open(os.path.join(ROOT,'static','sw.js')).read().replace('__BUILD__',BUILD);open(os.path.join(OUT,'sw.js'),'w').write(sw)
     smu=[u for u in written if u not in('/404.html','/poster/')]
