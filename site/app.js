@@ -2,6 +2,7 @@
 var h=document.documentElement;
 function ls(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
 var th=ls('mr-theme'),md=ls('mr-mode');if(th)h.dataset.theme=th;if(md)h.dataset.mode=md;
+var ip=null;window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();ip=e;var b=document.getElementById('install');if(b)b.hidden=false});
 var MR=window.MR={ls:ls,inr:function(v){return'₹'+Math.round(v).toLocaleString('en-IN')},
 el:function(t,x,c){var e=document.createElement(t);if(x!=null)e.textContent=x;if(c)e.className=c;return e},
 ld:function(k){try{return JSON.parse(localStorage.getItem(k)||'[]')}catch(e){return[]}},sv:function(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
@@ -14,6 +15,7 @@ MR.download=function(name,text,type){var b=new Blob([text],{type:type||'text/csv
 MR.fill=function(sel,vals){vals.forEach(function(v){var o=document.createElement('option');o.value=v;o.textContent=v;sel.appendChild(o)})};
 function ready(f){if(document.readyState!=='loading')f();else document.addEventListener('DOMContentLoaded',f)}
 ready(function(){
+var ib=document.getElementById('install');if(ib){ib.hidden=!ip;ib.addEventListener('click',function(){if(ip){ip.prompt();ip=null;ib.hidden=true}})}
 var t=document.getElementById('th'),m=document.getElementById('md'),l=document.getElementById('lg'),hi=ls('mr-lang')==='hi';
 if(t){if(th)t.value=th;t.addEventListener('input',function(){h.dataset.theme=t.value;ls('mr-theme',t.value)})}
 if(m)m.addEventListener('click',function(){var dark=h.dataset.mode?h.dataset.mode==='dark':matchMedia('(prefers-color-scheme: dark)').matches;h.dataset.mode=dark?'light':'dark';ls('mr-mode',h.dataset.mode)});
