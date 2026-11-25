@@ -98,25 +98,29 @@ def clean(raw):
         if k not in best or dt(row['date'])>dt(best[k]['date']):best[k]=row
     return list(best.values())
 # ---------- history (series) ----------
-def merge_series(state,rows,iso):
+def merge_series(state,rows,iso=None):
+    # every price is recorded on the day it was reported (not the day we built the site)
     p=os.path.join(SERIES_DIR,slug(state)+'.json');os.makedirs(SERIES_DIR,exist_ok=True)
     try:data=json.load(open(p,encoding='utf-8'))
-    except:data={'d':[],'v':{}}
+    except Exception:data={'d':[],'v':{}}
     d,v=data['d'],data['v']
-    if d and iso<d[-1] and iso not in d:return data
-    if iso not in d:
-        d.append(iso)
-        for a in v.values():a.append(None)
-    i=d.index(iso)
     for r in rows:
+        x=dt(r['date'])
+        if x.year<2000:continue
+        ri=x.strftime('%Y-%m-%d')
+        if ri not in d:
+            pos=0
+            while pos<len(d) and d[pos]<ri:pos+=1
+            d.insert(pos,ri)
+            for a in v.values():a.insert(pos,None)
         k=f"{r['market']}|{r['commodity']}|{r['variety']}";a=v.setdefault(k,[None]*len(d))
         while len(a)<len(d):a.append(None)
-        a[i]=r['md']
+        a[d.index(ri)]=r['md']
     if len(d)>30:
         cut=len(d)-30;data['d']=d=d[cut:]
         for k in list(v):
             v[k]=v[k][cut:]
-            if all(x is None for x in v[k]):del v[k]
+            if all(y is None for y in v[k]):del v[k]
     json.dump(data,open(p,'w',encoding='utf-8'),separators=(',',':'));return data
 def series_for(data,r):
     a=data.get('v',{}).get(f"{r['market']}|{r['commodity']}|{r['variety']}");return a
@@ -187,8 +191,14 @@ def main():
     DD=nice(latest);FOOT['latest']=latest
     FOOT['states']=sorted(S,key=lambda x:-sum(len(v) for v in S[x].values()))[:8];FOOT['crops']=[c for c,_ in cropn.most_common(8) if cropn[c]>=3]
     def cstats(c):
-        g=sorted(r['md'] for r in rows if r['commodity']==c and not r['odd']) or sorted(r['md'] for r in rows if r['commodity']==c);n=len(g)
-        return (g[n//2] if n%2 else (g[n//2-1]+g[n//2])//2),g[0],g[-1],n
+        by=collections.defaultdict(list)
+        for r in rows:
+            if r['commodity']==c and not r['odd']:by[r['state']].append(r['md'])
+        if not by:
+            for r in rows:
+                if r['commodity']==c:by[r['state']].append(r['md'])
+        meds=sorted(sorted(v)[len(v)//2] for v in by.values());allv=sorted(x for v in by.values() for x in v)
+        return meds[len(meds)//2],allv[0],allv[-1],len(allv)
     # history: only on real runs
     SD={}
     if not DEMO:
@@ -197,11 +207,20 @@ def main():
             SD[s]=merge_series(s,keep,iso)
     else:
         for s in S:SD[s]={'d':[],'v':{}}
+    if not DEMO:
+        for r in rows:
+            a=series_for(SD.get(r['state'],{}),r)
+            if a:
+                vals=[y for y in a if y is not None]
+                if len(vals)>=2 and vals[-1]==r['md']:r['d']=vals[-1]-vals[-2]
+    def chg(r):
+        d=r.get('d')
+        return '<td>–</td>' if not d else (f'<td class="up">▲ {d}</td>' if d>0 else f'<td class="dn">▼ {abs(d)}</td>')
     R='/mandi-prices/';home=[('Home','/')];root=home+[('Mandi prices',R)]
     # home
     top_rows=[]
     for c,_ in cropn.most_common(15):
-        g=sorted([r for r in rows if r['commodity']==c and not r['odd']],key=lambda r:r['md']) or sorted([r for r in rows if r['commodity']==c],key=lambda r:r['md']);top_rows.append(g[len(g)//2])
+        g=[r for r in rows if r['commodity']==c and not r['odd']] or [r for r in rows if r['commodity']==c];tm=cstats(c)[0];top_rows.append(min(g,key=lambda r:abs(r['md']-tm)))
     sc=''.join(f'<a href="{R}{slug(s)}/">{E(s)}</a>' for s in sorted(S,key=lambda x:-sum(len(v) for v in S[x].values()))[:12])
     hero=f'''<div class="cta"><a class="btn" href="/marketplace/">+ Sell produce</a><a class="btn o" href="/marketplace/">+ Post requirement</a></div>
 <form class="bar" id="sf" role="search"><div><label class="vh" for="st">State</label><select id="st"><option value="">All states</option></select></div><div><label class="vh" for="q">Search crop or mandi</label><input id="q" type="search" placeholder="Crop or mandi: wheat, Indore…" autocomplete="off" maxlength="40"></div><button class="btn" type="submit">Search prices</button></form>'''
@@ -225,7 +244,7 @@ def main():
         cl+=[(f'{bn} rate in {s2}',f'{R}crop/{slug(c)}/{slug(s2)}/') for s2 in topst if (c,s2) in cs_ok]
     cloud='<section class="card"><h2>Popular searches</h2><div class="cloud">'+''.join(f'<a href="{u}">{E(t)}</a>' for t,u in cl[:90])+'</div></section>' if cl else ''
     body=f'''{qs}
-{trust}{cropsec}{stats}<div class="cols"><section class="card" id="prices"><h2>Today’s mandi prices</h2><p class="hint">₹ per quintal · <span id="upd">{('Latest data: '+latest) if latest else ''}</span></p><div class="tw"><table id="pt"><thead><tr><th>Crop</th><th>Mandi</th><th>State</th><th>Min</th><th>Modal</th><th>Max</th><th>Change</th><th>Date</th></tr></thead><tbody id="tb">{''.join(f'<tr><td>{E(r["commodity"])}</td><td>{E(r["market"])}</td><td>{E(r["state"])}</td><td>{rs(r["mn"])}</td><td class="p">{rs(r["md"])}</td><td>{rs(r["mx"])}</td><td>–</td><td>{E(r["date"])}</td></tr>' for r in top_rows)}</tbody></table></div><p class="hint" id="cnt"></p><button class="btn g s" id="more" type="button" hidden>Show more</button> <button class="btn g s" type="button" data-csv="pt" data-name="mandi-prices.csv">Download CSV</button></section>
+{trust}{cropsec}{stats}<div class="cols"><section class="card" id="prices"><h2>Today’s mandi prices</h2><p class="hint">₹ per quintal · <span id="upd">{('Latest data: '+latest) if latest else ''}</span></p><div class="tw"><table id="pt"><thead><tr><th>Crop</th><th>Mandi</th><th>State</th><th>Min</th><th>Modal</th><th>Max</th><th>Change</th><th>Date</th></tr></thead><tbody id="tb">{''.join(f'<tr><td>{E(r["commodity"])}</td><td>{E(r["market"])}</td><td>{E(r["state"])}</td><td>{rs(r["mn"])}</td><td class="p">{rs(r["md"])}</td><td>{rs(r["mx"])}</td>{chg(r)}<td>{E(r["date"])}</td></tr>' for r in top_rows)}</tbody></table></div><p class="hint" id="cnt"></p><button class="btn g s" id="more" type="button" hidden>Show more</button> <button class="btn g s" type="button" data-csv="pt" data-name="mandi-prices.csv">Download CSV</button></section>
 <aside class="card"><h2 id="mvt">Highest prices today</h2><ul class="mv" id="mv"></ul></aside></div>
 {premium}{schemesec}{how}{cloud}
 <section class="card"><h2>Browse by state</h2><p class="hint">Choose a state, then a district, then a crop.</p><div class="chips">{sc}<a href="{R}">All states →</a></div></section>
