@@ -6,6 +6,30 @@ from content import SCHEMES,GUIDES,REVIEWED,REVIEWED_ISO
 IST=datetime.timezone(datetime.timedelta(hours=5,minutes=30));NOW=datetime.datetime.now(IST);BUILD_DATE=f'{NOW.day} {NOW.strftime("%b %Y")}'
 FOOT={'states':[],'crops':[],'latest':''}
 EMOJI={'wheat':'🌾','rice':'🍚','paddy':'🌾','maize':'🌽','bajra':'🌾','jowar':'🌾','barley':'🌾','onion':'🧅','tomato':'🍅','potato':'🥔','garlic':'🧄','ginger':'🫚','green chilli':'🌶️','dry chillies':'🌶️','brinjal':'🍆','cabbage':'🥬','cauliflower':'🥦','carrot':'🥕','bhindi':'🌿','cucumbar':'🥒','soyabean':'🫘','soybean':'🫘','mustard':'🌼','groundnut':'🥜','sunflower':'🌻','cotton':'☁️','gram':'🫘','arhar':'🫘','moong':'🫘','black gram':'🫘','masur':'🫘','lentil':'🫘','apple':'🍎','banana':'🍌','mango':'🥭','orange':'🍊','grapes':'🍇','pomegranate':'🍎','papaya':'🍈','lemon':'🍋','coconut':'🥥','sugarcane':'🎋','turmeric':'🟡','coriander':'🌿','pumpkin':'🎃','watermelon':'🍉','pineapple':'🍍','guava':'🍐'}
+def ic(n,cls='ic'):return f'<svg class="{cls}" aria-hidden="true" focusable="false"><use href="/icons.svg#i-{n}"/></svg>'
+NUMH={'Min','Modal','Max','Per kg','Price','Change'}
+def numify(body):
+    def tbl(m):
+        t=m.group(0);hs=re.findall(r'<th[^>]*>(.*?)</th>',t);idx={i for i,h in enumerate(hs) if h in NUMH}
+        if not idx:return t
+        def row(mr):
+            r=mr.group(0);i=[-1]
+            if '<th' in r:
+                def th(mt):
+                    i[0]+=1;s=mt.group(0)
+                    return s.replace('<th','<th class="n"',1) if i[0] in idx and 'class=' not in s.split('>')[0] else s
+                return re.sub(r'<th[^>]*>.*?</th>',th,r)
+            def td(mt):
+                i[0]+=1;s=mt.group(0)
+                if i[0] not in idx:return s
+                return s.replace('class="','class="n ',1) if 'class="' in s.split('>')[0] else s.replace('<td','<td class="n"',1)
+            return re.sub(r'<td[^>]*>.*?</td>',td,r)
+        return re.sub(r'<tr[^>]*>.*?</tr>',row,t)
+    return re.sub(r'<table[^>]*>.*?</table>',tbl,body,flags=re.S)
+def mid(v):
+    s=sorted(v);n=len(s);return s[n//2] if n%2 else (s[n//2-1]+s[n//2])//2
+def kpi(med,lo,hi,n):
+    return f'<div class="stats"><div class="st g"><b>{rs(med)}</b><span>Typical (modal)</span></div><div class="st b"><b>{rs(lo)}</b><span>Lowest</span></div><div class="st y"><b>{rs(hi)}</b><span>Highest</span></div><div class="st p"><b>{n:,}</b><span>{"Mandi" if n==1 else "Mandis"}</span></div></div>'
 def emoji(c):return EMOJI.get(c.split('(')[0].strip().lower(),'🌱')
 def nice(s):
     try:d=datetime.datetime.strptime(s,'%d/%m/%Y');return f'{d.day} {d.strftime("%b %Y")}'
@@ -150,6 +174,7 @@ def shell(path,title,desc,h1,lead,body,crumbs=None,ld=None,scripts=(),hero='',in
     if crumbs and len(crumbs)>1:cr='<div class="crumbs">'+' › '.join(f'<a href="{p}">{E(n)}</a>' for n,p in crumbs[:-1])+' › '+E(crumbs[-1][0])+'</div>'
     robots='index,follow,max-image-preview:large,max-snippet:-1' if index else 'noindex,follow'
     if title.endswith(' | MandiRates') and len(title)>70:title=title[:-13]
+    body=numify(body)
     banner='<div class="note" id="dn" hidden></div>' if 'js/home.js' in scripts or 'js/tools.js' in scripts or 'js/compare.js' in scripts else ''
     h1a=''
     sc=''.join(f'<script src="/{s}" defer></script>' for s in ('logic.js','app.js')+tuple(scripts))
@@ -160,8 +185,8 @@ def shell(path,title,desc,h1,lead,body,crumbs=None,ld=None,scripts=(),hero='',in
 <meta property="og:title" content="{E(title)}"><meta property="og:description" content="{E(desc)}"><meta property="og:type" content="website"><meta property="og:url" content="{BASE+path}"><meta property="og:image" content="{BASE}/og.png"><meta name="twitter:card" content="summary_large_image">
 <link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-192.png"><link rel="stylesheet" href="/theme.css">
 {'<script type="application/ld+json">'+ldj+'</script>' if ldj else ''}</head>
-<body><header class="site"><div class="datebar"><div class="w"><span id="today">Last updated {BUILD_DATE}</span><span>Prices as of {nice(FOOT["latest"]) if FOOT["latest"] else "n/a"}</span><span>Source: data.gov.in</span></div></div><div class="w"><div class="nav"><a class="brand" href="/">🌾 MandiRates</a><nav aria-label="Main">{nav}</nav>
-<div class="ctl"><a class="btn s" href="/marketplace/">+ Post free ad</a><label class="vh" for="th">Colour theme</label><select id="th"><option value="forest">Forest</option><option value="leaf">Leaf</option><option value="sun">Earth</option><option value="ocean">Teal</option></select><button id="md" type="button" aria-label="Toggle dark mode">🌙</button><button id="lg" type="button">हिन्दी</button></div></div>
+<body><header class="site"><div class="datebar"><div class="w"><span id="today">Last updated {BUILD_DATE}</span><span>Prices as of {nice(FOOT["latest"]) if FOOT["latest"] else "n/a"}</span><span>Source: data.gov.in</span></div></div><div class="w"><div class="nav"><a class="brand" href="/">{ic("logo","logo")}<span>Mandi<b>Rates</b></span></a><nav aria-label="Main">{nav}</nav>
+<div class="ctl"><a class="btn s" href="/marketplace/">+ Post free ad</a><label class="vh" for="th">Colour theme</label><select id="th"><option value="forest">Forest</option><option value="leaf">Leaf</option><option value="sun">Earth</option><option value="ocean">Teal</option></select><button id="md" type="button" aria-label="Toggle dark mode">{ic("moon")}</button><button id="lg" type="button">हिन्दी</button></div></div>
 <div class="band">{cr}<h1{h1a}>{E(h1)}</h1><p class="lead">{lead}</p>{hero}</div></div></header>
 <main class="w">{banner}{body}</main>
 {footer_html()}{sc}</body></html>'''
@@ -197,8 +222,8 @@ def main():
         if not by:
             for r in rows:
                 if r['commodity']==c:by[r['state']].append(r['md'])
-        meds=sorted(sorted(v)[len(v)//2] for v in by.values());allv=sorted(x for v in by.values() for x in v)
-        return meds[len(meds)//2],allv[0],allv[-1],len(allv)
+        meds=[mid(v) for v in by.values()];allv=sorted(x for v in by.values() for x in v)
+        return mid(meds),allv[0],allv[-1],len(allv)
     # history: only on real runs
     SD={}
     if not DEMO:
@@ -226,10 +251,10 @@ def main():
 <form class="bar" id="sf" role="search"><div><label class="vh" for="st">State</label><select id="st"><option value="">All states</option></select></div><div><label class="vh" for="q">Search crop or mandi</label><input id="q" type="search" placeholder="Crop or mandi: wheat, Indore…" autocomplete="off" maxlength="40"></div><button class="btn" type="submit">Search prices</button></form>'''
     cards=''.join(f'<a class="ccard" href="/mandi-prices/crop/{slug(c)}/"><span class="em">{emoji(c)}</span><b>{E(c)}</b><span class="pr">{rs(m)}</span><small>{rs(lo)} – {rs(hi)} · {n} mandis</small></a>' for c,_ in cropn.most_common(12) if cropn[c]>=5 for m,lo,hi,n in [cstats(c)])
     cropsec=f'<section class="card"><h2>Popular crops today</h2><p class="hint">Typical price per quintal across India. Tap a crop to see every mandi.</p><div class="cgrid">{cards}</div></section>' if cards else ''
-    trust='<div class="trust"><span>✔ Government data (data.gov.in)</span><span>🕒 Updated daily</span><span>🆓 Free to use</span><span>🔓 No sign-up for prices</span></div>'
+    trust=f'<div class="trust"><span>{ic("check")} Government data (data.gov.in)</span><span>{ic("clock")} Updated daily</span><span>{ic("gift")} Free to use</span><span>{ic("unlock")} No sign-up for prices</span></div>'
     learnsec='<section class="card"><h2>Guides for farmers and traders</h2><div class="grid">'+''.join(f'<a class="lcard" href="/guides/{g["slug"]}/"><small>Guide</small><b>{E(g["short"])}</b></a>' for g in GUIDES)+'</div></section>'
     HING={'wheat':'Gehun','rice':'Chawal','onion':'Pyaz','tomato':'Tamatar','potato':'Aloo','maize':'Makka','mustard':'Sarson','garlic':'Lahsun','ginger':'Adrak','banana':'Kela','apple':'Seb','mango':'Aam','cotton':'Kapas','gram':'Chana','sugarcane':'Ganna','soyabean':'Soyabean'}
-    qs='<div class="qs"><a href="/mandi-prices/"><span class="ic">📊</span>Mandi prices</a><a href="/compare/"><span class="ic">⚖️</span>Compare</a><a href="/tools/#sell"><span class="ic">🚚</span>Where to sell</a><a href="/marketplace/"><span class="ic">🛒</span>Buy / Sell</a><a href="/schemes/"><span class="ic">🏛️</span>Schemes</a><a href="/guides/"><span class="ic">📖</span>Guides</a></div>'
+    qs=f'<div class="qs"><a href="/mandi-prices/">{ic("bars")}Mandi prices</a><a href="/compare/">{ic("scale")}Compare</a><a href="/tools/#sell">{ic("truck")}Where to sell</a><a href="/marketplace/">{ic("cart")}Buy / Sell</a><a href="/schemes/">{ic("landmark")}Schemes</a><a href="/guides/">{ic("book")}Guides</a></div>'
     nm=len({(r['state'],r['market']) for r in rows})
     stats=f'<div class="stats"><div class="st g"><b>{nm:,}</b><span>Mandis with prices</span></div><div class="st p"><b>{len(cropn):,}</b><span>Crops tracked</span></div><div class="st b"><b>{len(S):,}</b><span>States and UTs</span></div><div class="st y"><b>Daily</b><span>Price updates</span></div></div>'
     premium='<section class="promo"><div><span class="tag b">Coming soon</span><h2>MandiRates Premium</h2><p>Longer price history, more alerts and more contact views. Prices, comparison and CSV stay free.</p></div><a class="btn" href="/premium/">See what is planned</a></section>'
@@ -330,17 +355,17 @@ def main():
         L=sorted([r for r in rows if r['commodity']==c],key=lambda r:-r['md']);L=([x for x in L if not x['odd']] or L)[:25];cp=f'{R}crop/{slug(c)}/';top=L[0]
         pd=max((x['date'] for x in L),key=dt);fr=(pd==NOW.strftime('%d/%m/%Y'))
         ans=f'The highest {c} price {"today is" if fr else "on "+nice(pd)+" was"} {rs(top["md"])} per quintal at {top["market"]}, {top["state"]}.'
-        b=f'<section class="card"><p class="big">{E(ans)}</p><div class="tw"><table id="pt"><thead><tr><th>Mandi</th><th>State</th><th>Min</th><th>Modal</th><th>Max</th><th>Date</th></tr></thead><tbody>'+''.join(f'<tr{" class=best" if i==0 else ""}><td>{E(x["market"])}</td><td><a href="{R}{slug(x["state"])}/">{E(x["state"])}</a></td><td>{rs(x["mn"])}</td><td class="p">{rs(x["md"])}{" ⚠" if x.get("odd") else ""}</td><td>{rs(x["mx"])}</td><td>{E(x["date"])}</td></tr>' for i,x in enumerate(L))+f'</tbody></table></div><p><a class="btn g s" href="/compare/?crop={E(c)}">Compare mandis</a> <button class="btn g s" type="button" data-csv="pt" data-name="{slug(c)}-prices.csv">Download CSV</button></p></section>'
+        b=f'<section class="card">{kpi(*cstats(c))}<div class="tw"><table id="pt"><thead><tr><th>Mandi</th><th>State</th><th>Min</th><th>Modal</th><th>Max</th><th>Date</th></tr></thead><tbody>'+''.join(f'<tr{" class=best" if i==0 else ""}><td>{E(x["market"])}</td><td><a href="{R}{slug(x["state"])}/">{E(x["state"])}</a></td><td>{rs(x["mn"])}</td><td class="p">{rs(x["md"])}{" ⚠" if x.get("odd") else ""}</td><td>{rs(x["mx"])}</td><td>{E(x["date"])}</td></tr>' for i,x in enumerate(L))+f'</tbody></table></div><p><a class="btn g s" href="/compare/?crop={E(c)}">Compare mandis</a> <button class="btn g s" type="button" data-csv="pt" data-name="{slug(c)}-prices.csv">Download CSV</button></p></section>'
         sc_=''.join(f'<a href="{cp}{slug(s2)}/">{E(s2)} ({csn[(c,s2)]})</a>' for s2 in sorted({r['state'] for r in rows if r['commodity']==c}) if (c,s2) in cs_ok)
         if sc_:b+=f'<section class="card"><h2>{E(c)} price by state</h2><div class="chips">{sc_}</div></section>'
         write(cp,shell(cp,f'{c} Price Today in India ({nice(pd)}) | MandiRates',ans[:155],(f'{c} price today in India' if fr else f'{c} price in India: latest rates'),ans,b,root+[(c,cp)],[{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":f"What is the highest {c} price today?","acceptedAnswer":{"@type":"Answer","text":ans}}]}],('js/csv.js',)))
     for (c,s) in sorted(cs_ok):
         cp=f'{R}crop/{slug(c)}/';csp=f'{cp}{slug(s)}/'
         L=sorted([r for r in rows if r['commodity']==c and r['state']==s],key=lambda r:-r['md']);Lg=[x for x in L if not x['odd']] or L;top=best(L)
-        pd=max((x['date'] for x in L),key=dt);fr=(pd==NOW.strftime('%d/%m/%Y'));vals=sorted(x['md'] for x in Lg);med=vals[len(vals)//2]
+        pd=max((x['date'] for x in L),key=dt);fr=(pd==NOW.strftime('%d/%m/%Y'));vals=sorted(x['md'] for x in Lg);med=mid(vals)
         ans=f'{c} price in {s} {"today is" if fr else "on "+nice(pd)+" was"} typically {rs(med)} per quintal (modal), from {rs(vals[0])} to {rs(vals[-1])} across {len(Lg)} mandis. Highest: {rs(top["md"])} at {top["market"]}, {top["district"]}.'
         trs=''.join(f'<tr{" class=best" if x is top else ""}><td>{E(x["market"])}</td><td>{(f"<a href=\"{R}{slug(s)}/{slug(x[chr(100)+chr(105)+chr(115)+chr(116)+chr(114)+chr(105)+chr(99)+chr(116)])}/{slug(c)}/\">{E(x[chr(100)+chr(105)+chr(115)+chr(116)+chr(114)+chr(105)+chr(99)+chr(116)])}</a>") if (s,x["district"],c) in allowed else E(x["district"])}</td><td>{rs(x["mn"])}</td><td class="p">{rs(x["md"])}{" ⚠" if x.get("odd") else ""}</td><td>{rs(x["mx"])}</td><td>{E(x["date"])}</td></tr>' for x in L[:60])
-        b=f'<section class="card"><p class="big">{E(ans)}</p><div class="tw"><table id="pt"><thead><tr><th>Mandi</th><th>District</th><th>Min</th><th>Modal</th><th>Max</th><th>Date</th></tr></thead><tbody>{trs}</tbody></table></div><p><a class="btn g s" href="/compare/?crop={E(c)}">Compare mandis</a> <button class="btn g s" type="button" data-csv="pt" data-name="{slug(c)}-{slug(s)}.csv">Download CSV</button></p></section><section class="card"><h2>More about {E(c)} and {E(s)}</h2><div class="chips"><a href="{cp}">{E(c)} price in India</a><a href="{R}{slug(s)}/">All prices in {E(s)}</a></div></section>'
+        b=f'<section class="card">{kpi(med,vals[0],vals[-1],len(Lg))}<div class="tw"><table id="pt"><thead><tr><th>Mandi</th><th>District</th><th>Min</th><th>Modal</th><th>Max</th><th>Date</th></tr></thead><tbody>{trs}</tbody></table></div><p><a class="btn g s" href="/compare/?crop={E(c)}">Compare mandis</a> <button class="btn g s" type="button" data-csv="pt" data-name="{slug(c)}-{slug(s)}.csv">Download CSV</button></p></section><section class="card"><h2>More about {E(c)} and {E(s)}</h2><div class="chips"><a href="{cp}">{E(c)} price in India</a><a href="{R}{slug(s)}/">All prices in {E(s)}</a></div></section>'
         write(csp,shell(csp,f'{c} Price in {s} ({nice(pd)}) | MandiRates',ans[:155],f'{c} price in {s}'+(' today' if fr else ': latest rates'),E(ans),b,root+[(c,cp),(s,csp)],[{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":f"What is the {c} price in {s} today?","acceptedAnswer":{"@type":"Answer","text":ans}}]}],('js/csv.js',)))
     for s in sorted(S):
         sp=f'{R}{slug(s)}/';ds=sorted(S[s]);scr=root+[(s,sp)];spd=max((x['date'] for d in S[s] for c in S[s][d] for x in S[s][d][c]),key=dt)
@@ -359,7 +384,7 @@ def main():
                 hist=f'<section class="card"><h2>Price trend at {E(top["market"])}</h2>{ch}</section>' if ch else f'<section class="card"><h2>Price trend</h2><p class="mut">History builds one day at a time. A chart appears here after a few days of saved prices.</p></section>'
                 sib=[x for x in sorted(S[s]) if x!=d and (s,x,c) in allowed][:8];oth=[x for x in sorted(S[s][d]) if x!=c and (s,d,x) in allowed][:8];rel=''
                 if sib or oth:rel='<section class="card"><h2>More prices nearby</h2>'+(f'<p class="hint">{E(c)} in other districts of {E(s)}</p><div class="chips">'+''.join(f'<a href="{sp}{slug(x)}/{slug(c)}/">{E(x)}</a>' for x in sib)+'</div>' if sib else '')+(f'<p class="hint">Other crops in {E(d)}</p><div class="chips">'+''.join(f'<a href="{dp}{slug(x)}/">{E(x)}</a>' for x in oth)+'</div>' if oth else '')+'</section>'
-                b=f'<section class="card"><p class="big">{E(plain)}</p>{table(L)}<p><a class="btn g s" href="/compare/?crop={E(c)}">Compare mandis</a> <button class="btn g s" type="button" data-csv="pt" data-name="{slug(c)}-{slug(d)}.csv">Download CSV</button></p></section>{hist}{rel}<section class="card"><h2>Frequently asked</h2><details open><summary>What is the {E(c)} price in {E(d)} today?</summary><p>{E(plain)}</p></details><details><summary>Where does this price come from?</summary><p>From the Government of India open data portal (Agmarknet). Confirm with the mandi before you trade.</p></details></section>'
+                b=f'<section class="card">{kpi(mid(x["md"] for x in L),min(x["md"] for x in L),max(x["md"] for x in L),len(L))}{table(L)}<p><a class="btn g s" href="/compare/?crop={E(c)}">Compare mandis</a> <button class="btn g s" type="button" data-csv="pt" data-name="{slug(c)}-{slug(d)}.csv">Download CSV</button></p></section>{hist}{rel}<section class="card"><h2>Frequently asked</h2><details open><summary>What is the {E(c)} price in {E(d)} today?</summary><p>{E(plain)}</p></details><details><summary>Where does this price come from?</summary><p>From the Government of India open data portal (Agmarknet). Confirm with the mandi before you trade.</p></details></section>'
                 write(cp,shell(cp,f'{c} Price in {d}, {s} ({nice(date)}) | MandiRates',plain[:155],(f'{c} price in {d} today' if fr2 else f'{c} price in {d}: latest rates'),E(plain),b,dcr+[(c,cp)],[{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":f"What is the {c} price in {d} today?","acceptedAnswer":{"@type":"Answer","text":plain}}]}],('js/csv.js',)))
     # data + static
     os.makedirs(os.path.join(OUT,'data'),exist_ok=True)
@@ -370,7 +395,7 @@ def main():
     shutil.copytree(os.path.join(src,'js'),os.path.join(OUT,'js'))
     open(os.path.join(OUT,'js','csv.js'),'w').write('')  # CSV buttons are wired by app.js
     open(os.path.join(OUT,'js','poster.js'),'w').write("document.addEventListener('DOMContentLoaded',function(){var b=document.getElementById('pp');if(b)b.addEventListener('click',function(){window.print()})});")
-    for f in('manifest.webmanifest','icon.svg','robots.txt','_headers','icon-192.png','icon-512.png','og.png','config.js','_redirects'):
+    for f in('manifest.webmanifest','icon.svg','robots.txt','_headers','icon-192.png','icon-512.png','og.png','config.js','_redirects','icons.svg'):
         p=os.path.join(ROOT,'static',f)
         if os.path.exists(p):shutil.copy(p,OUT)
     for f in os.listdir(os.path.join(ROOT,'static')):
