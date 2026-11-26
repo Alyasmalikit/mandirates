@@ -1,5 +1,5 @@
 var C='mr-__BUILD__';
-self.addEventListener('install',function(e){self.skipWaiting();e.waitUntil(caches.open(C).then(function(c){return c.addAll(['/','/theme.css','/app.js','/logic.js','/icon.svg'])}))});
+self.addEventListener('install',function(e){self.skipWaiting();e.waitUntil(caches.open(C).then(function(c){return c.addAll(['/','/theme.css','/app.js','/logic.js','/icon.svg','/icons.svg'])}))});
 self.addEventListener('activate',function(e){e.waitUntil(caches.keys().then(function(k){return Promise.all(k.filter(function(x){return x!==C}).map(function(x){return caches.delete(x)}))}).then(function(){return self.clients.claim()}))});
 function keep(req,r){if(r&&r.ok){var c2=r.clone();caches.open(C).then(function(c){c.put(req,c2)})}return r}
 self.addEventListener('fetch',function(e){var q=e.request;if(q.method!=='GET')return;var u=new URL(q.url);if(u.origin!==location.origin)return;

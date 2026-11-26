@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+<symbol id="i-logo" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#14532d"/><path d="M16 6c5 4 7.5 8.5 7.5 13 0 4.2-3.2 7-7.5 8.2C11.7 26 8.5 23.2 8.5 19c0-4.5 2.5-9 7.5-13z" fill="#4ade80"/><path d="M16 12v14" stroke="#14532d" stroke-width="1.8" stroke-linecap="round"/><path d="M16 17l-3-2.5M16 20.5l3.5-3" stroke="#14532d" stroke-width="1.5" stroke-linecap="round"/></symbol>
+<symbol id="i-bars" viewBox="0 0 24 24"><path d="M4 20V11M10 20V4M16 20v-7M22 20H2"/></symbol>
+<symbol id="i-scale" viewBox="0 0 24 24"><path d="M12 3v18M7 21h10M4 7h16"/><path d="M4 7l-2.5 6a3.5 3.5 0 0 0 5 0L4 7zM20 7l-2.5 6a3.5 3.5 0 0 0 5 0L20 7z"/></symbol>
+<symbol id="i-truck" viewBox="0 0 24 24"><path d="M2 6h11v10H2zM13 9.5h4.5L21 13v3h-8"/><circle cx="6.5" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></symbol>
+<symbol id="i-cart" viewBox="0 0 24 24"><path d="M3 4h2.2l2.3 11h10.5l2-8H6.2"/><circle cx="9.5" cy="19" r="1.5"/><circle cx="17" cy="19" r="1.5"/></symbol>
+<symbol id="i-landmark" viewBox="0 0 24 24"><path d="M3 9.5L12 4l9 5.5M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20.5h18"/></symbol>
+<symbol id="i-book" viewBox="0 0 24 24"><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3M9 7.5h6"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.8 2.8L16 9.5"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.5l3.5 2"/></symbol>
+<symbol id="i-gift" viewBox="0 0 24 24"><path d="M20 12v8.5H4V12M2.5 8h19v4h-19zM12 8v12.5"/><path d="M12 8C9.5 3.5 6 4.5 6.8 6.8 7.3 8.2 12 8 12 8zM12 8c2.5-4.5 6-3.5 5.2-1.2C16.7 8.2 12 8 12 8z"/></symbol>
+<symbol id="i-unlock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9.5" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.7-1.5"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.8 6.8 0 0 0 10.5 10.5z"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+</svg>
