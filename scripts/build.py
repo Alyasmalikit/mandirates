@@ -112,6 +112,8 @@ def merge_last(fresh):
     # Early in the day only some mandis have reported. Keep each mandi's newest price from the last few days so pages stay full. Every row keeps its own date.
     try:old=json.load(open(LAST,encoding='utf-8'))
     except Exception:old=[]
+    for r in old:
+        for f in('state','district','market','commodity','variety'):r[f]=nm(r.get(f,''))
     best={}
     for r in old+fresh:
         k=(r['state'],r['district'],r['market'],r['commodity'],r['variety'])
@@ -131,11 +133,12 @@ def mark_odd(rows):
     return rows
 def best(L):
     good=[x for x in L if not x.get('odd')];return (good or L)[0]
+def nm(s):return re.sub(r'\s+',' ',str(s)).replace(' )',')').replace('( ','(').strip()
 def clean(raw):
     best={}
     for r in raw:
         r={k.lower():v for k,v in r.items()}
-        row=dict(state=str(r.get('state','')).strip(),district=str(r.get('district','')).strip(),market=str(r.get('market','')).strip(),commodity=str(r.get('commodity','')).strip(),variety=str(r.get('variety','')).strip(),date=str(r.get('arrival_date','')),mn=num(r.get('min_price')),mx=num(r.get('max_price')),md=num(r.get('modal_price')))
+        row=dict(state=nm(r.get('state','')),district=nm(r.get('district','')),market=nm(r.get('market','')),commodity=nm(r.get('commodity','')),variety=nm(r.get('variety','')),date=str(r.get('arrival_date','')),mn=num(r.get('min_price')),mx=num(r.get('max_price')),md=num(r.get('modal_price')))
         if not(row['state'] and row['district'] and row['market'] and row['commodity']):continue
         if row['md']<=0 or row['mn']<0 or row['mx']<row['mn']:continue
         k=(row['state'],row['district'],row['market'],row['commodity'],row['variety'])
@@ -244,6 +247,9 @@ def main():
                 if r['commodity']==c:by[r['state']].append(r['md'])
         meds=[mid(v) for v in by.values()];allv=sorted(x for v in by.values() for x in v)
         return mid(meds),allv[0],allv[-1],len(allv)
+    def crange(c):
+        v=sorted(r['md'] for r in rows if r['commodity']==c and not r['odd']) or sorted(r['md'] for r in rows if r['commodity']==c);n=len(v)
+        return v[int(0.1*(n-1))],v[int(round(0.9*(n-1)))]
     # history: only on real runs
     SD={}
     if not DEMO:
@@ -269,7 +275,7 @@ def main():
     sc=''.join(f'<a href="{R}{slug(s)}/">{E(s)}</a>' for s in sorted(S,key=lambda x:-sum(len(v) for v in S[x].values()))[:12])
     hero=f'''<div class="cta"><a class="btn" href="/marketplace/">+ Sell produce</a><a class="btn o" href="/marketplace/">+ Post requirement</a></div>
 <form class="bar" id="sf" role="search"><div><label class="vh" for="st">State</label><select id="st"><option value="">All states</option></select></div><div><label class="vh" for="q">Search crop or mandi</label><input id="q" type="search" placeholder="Crop or mandi: wheat, Indore…" autocomplete="off" maxlength="40"></div><button class="btn" type="submit">Search prices</button></form>'''
-    cards=''.join(f'<a class="ccard" href="/mandi-prices/crop/{slug(c)}/"><span class="em">{emoji(c)}</span><b>{E(c)}</b><span class="pr">{rs(m)}</span><small>{rs(lo)} – {rs(hi)} · {n} mandis</small></a>' for c,_ in cropn.most_common(12) if cropn[c]>=5 for m,lo,hi,n in [cstats(c)])
+    cards=''.join(f'<a class="ccard" href="/mandi-prices/crop/{slug(c)}/"><span class="em">{emoji(c)}</span><b>{E(c)}</b><span class="pr">{rs(m)}</span><small>{rs(lo)} – {rs(hi)} · {n} mandis</small></a>' for c,_ in cropn.most_common(12) if cropn[c]>=5 for m,_lo,_hi,n in [cstats(c)] for lo,hi in [crange(c)])
     cropsec=f'<section class="card"><h2>Popular crops today</h2><p class="hint">Typical price per quintal across India. Tap a crop to see every mandi.</p><div class="cgrid">{cards}</div></section>' if cards else ''
     trust=f'<div class="trust"><span>{ic("check")} Government data (data.gov.in)</span><span>{ic("clock")} Updated daily</span><span>{ic("gift")} Free to use</span><span>{ic("unlock")} No sign-up for prices</span></div>'
     blogsec='<section class="card"><h2>From the blog</h2><div class="grid">'+''.join(f'<a class="lcard" href="/blog/{p["slug"]}/"><small>{nice(datetime.date.fromisoformat(p["date"]).strftime("%d/%m/%Y"))}</small><b>{E(p["short"])}</b></a>' for p in sorted(BLOG,key=lambda x:x['date'],reverse=True)[:6])+'</div></section>'
