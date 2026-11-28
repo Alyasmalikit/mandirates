@@ -1,7 +1,8 @@
 (function(){
 var $=function(i){return document.getElementById(i)},E=MR.el,NOW=Date.now(),kind='sell',LIMIT=3,CFG=window.MR_CONFIG||{},LIVE=!!(CFG.supabaseUrl&&CFG.supabaseKey),L=[],loadErr='';
 function getSess(){try{var s=JSON.parse(localStorage.getItem('mr-sess')||'null');return MRL.sessionOk(s,Date.now())?s:null}catch(e){return null}}
-var sess=getSess();
+var MODE=(CFG.authMode==='phone')?'phone':'email',sess=getSess();
+var emailOk=function(x){return/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(x)&&x.length<=80};
 function api(path,o,tok){o=o||{};var h={apikey:CFG.supabaseKey,'Content-Type':'application/json',Authorization:'Bearer '+(tok||CFG.supabaseKey)};if(o.prefer)h.Prefer=o.prefer;
 return fetch(CFG.supabaseUrl+path,{method:o.method||'GET',headers:h,body:o.body?JSON.stringify(o.body):undefined}).then(function(r){return r.text().then(function(t){var j=null;try{j=t?JSON.parse(t):null}catch(e){}if(!r.ok)throw new Error((j&&(j.msg||j.message||j.error_description||j.hint))||'Something went wrong. Please try again.');return j})})}
 // ---- demo data (used only when no database is configured) ----
@@ -30,18 +31,24 @@ function tab(n){['1','2','3'].forEach(function(i){$('t'+i).setAttribute('aria-se
 $('t1').onclick=function(){tab(1)};$('t2').onclick=function(){tab(2)};$('t3').onclick=function(){tab(3)};
 ['ft','fc','fs','fq','pm'].forEach(function(i){$(i).addEventListener('input',show)});
 function refresh(){fill('fc','crop');fill('fs','state');show()}
-$('f').addEventListener('submit',function(ev){ev.preventDefault();var l={id:Date.now(),kind:kind,crop:$('c').value.trim(),qty:+$('q').value,price:+$('p').value,state:$('s').value.trim(),district:$('d').value.trim(),phone:LIVE?(sess&&sess.phone)||'':$('ph').value.trim(),note:$('n').value.trim(),consent:$('cs').checked,ver:0,at:Date.now()},er=MRL.validate(l);
-if(LIVE&&!sess)er=['Please sign in first.'].concat(er.filter(function(x){return x.indexOf('mobile')<0}));
+$('f').addEventListener('submit',function(ev){ev.preventDefault();var l={id:Date.now(),kind:kind,crop:$('c').value.trim(),qty:+$('q').value,price:+$('p').value,state:$('s').value.trim(),district:$('d').value.trim(),phone:(LIVE&&MODE==='phone')?(sess&&sess.phone)||'':$('ph').value.trim(),note:$('n').value.trim(),consent:$('cs').checked,ver:0,at:Date.now()},er=MRL.validate(l);
+if(LIVE&&!sess)er=['Please sign in first.'].concat(MODE==='phone'?er.filter(function(x){return x.indexOf('mobile')<0}):er);
 if(er.length){$('er').textContent=er.join(' ');return}
 if(!LIVE){delete l.consent;L.unshift(l);mine.unshift(l);MR.sv('mr-list',mine.slice(0,50));$('f').reset();$('er').textContent='';tab(1);refresh();return}
-api('/rest/v1/listings',{method:'POST',body:MRL.toApi(l,sess.user),prefer:'return=minimal'},sess.token).then(function(){return load()}).then(function(){$('f').reset();$('er').textContent='';tab(1);refresh()}).catch(function(e){$('er').textContent=e.message})});
+(MODE==='email'?api('/rest/v1/profiles?on_conflict=id',{method:'POST',body:{id:sess.user,email:sess.email,phone:l.phone},prefer:'resolution=merge-duplicates,return=minimal'},sess.token):Promise.resolve()).then(function(){return api('/rest/v1/listings',{method:'POST',body:MRL.toApi(l,sess.user),prefer:'return=minimal'},sess.token)}).then(function(){return load()}).then(function(){$('f').reset();$('er').textContent='';tab(1);refresh()}).catch(function(e){$('er').textContent=e.message})});
 // ---- sign-in (only when a database is configured) ----
 function setSess(s){sess=s;try{localStorage.setItem('mr-sess',JSON.stringify(s))}catch(e){}authUi()}
-function authUi(){if(!LIVE)return;$('au').textContent=sess?'Signed in as +91 '+sess.phone:'';$('auth').hidden=false;$('a1').hidden=!!sess;$('ah').hidden=!!sess;$('ahint').hidden=!!sess;$('so').hidden=!sess;if(sess)$('a2').hidden=true}
-if(LIVE){$('dm').hidden=true;$('phw').hidden=true;authUi();
+function authUi(){if(!LIVE)return;$('au').textContent=sess?(MODE==='phone'?'Signed in as +91 '+sess.phone:'Signed in as '+sess.email):'';$('auth').hidden=false;$('a1').hidden=!!sess;$('ah').hidden=!!sess;$('ahint').hidden=!!sess;$('so').hidden=!sess;if(sess)$('a2').hidden=true}
+if(LIVE){$('dm').hidden=true;$('phw').hidden=(MODE==='phone');authUi();
+ if(MODE==='email'){$('ap').type='email';$('ap').setAttribute('inputmode','email');$('ap').setAttribute('maxlength','80');$('ap').setAttribute('autocomplete','email');document.querySelector('label[for=ap]').textContent='Email address';$('ahint').textContent='Sign in with your email to post listings and see contacts.'}
  $('so').onclick=function(){sess=null;try{localStorage.removeItem('mr-sess')}catch(e){}authUi();show()};
- $('as').onclick=function(){var p=$('ap').value.trim();if(!MRL.phoneOk(p)){$('ae').textContent='Enter a valid 10-digit mobile number.';return}$('ae').textContent='';api('/auth/v1/otp',{method:'POST',body:{phone:MRL.e164(p),create_user:true}}).then(function(){$('a2').hidden=false;$('ae').textContent='We sent a code by SMS.'}).catch(function(e){$('ae').textContent=e.message})};
- $('av').onclick=function(){var p=$('ap').value.trim(),o=$('ao').value.trim();if(!o){$('ae').textContent='Enter the code from the SMS.';return}api('/auth/v1/verify',{method:'POST',body:{type:'sms',phone:MRL.e164(p),token:o}}).then(function(j){var s={token:j.access_token,user:j.user&&j.user.id,exp:Date.now()+(j.expires_in||3600)*1000,phone:p};if(!s.token||!s.user)throw new Error('Sign-in failed.');return api('/rest/v1/profiles?on_conflict=id',{method:'POST',body:{id:s.user,phone:p},prefer:'resolution=merge-duplicates,return=minimal'},s.token).then(function(){setSess(s);$('ae').textContent=''})}).catch(function(e){$('ae').textContent=e.message})}}
+ $('as').onclick=function(){var p=$('ap').value.trim();
+  if(MODE==='email'){if(!emailOk(p)){$('ae').textContent='Enter a valid email address.';return}$('ae').textContent='';api('/auth/v1/otp',{method:'POST',body:{email:p,create_user:true}}).then(function(){$('a2').hidden=false;$('ae').textContent='We sent a code to your email.'}).catch(function(e){$('ae').textContent=e.message});return}
+  if(!MRL.phoneOk(p)){$('ae').textContent='Enter a valid 10-digit mobile number.';return}$('ae').textContent='';api('/auth/v1/otp',{method:'POST',body:{phone:MRL.e164(p),create_user:true}}).then(function(){$('a2').hidden=false;$('ae').textContent='We sent a code by SMS.'}).catch(function(e){$('ae').textContent=e.message})};
+ $('av').onclick=function(){var p=$('ap').value.trim(),o=$('ao').value.trim();if(!o){$('ae').textContent=MODE==='email'?'Enter the code from your email.':'Enter the code from the SMS.';return}
+  var vb=MODE==='email'?{type:'email',email:p,token:o}:{type:'sms',phone:MRL.e164(p),token:o};
+  api('/auth/v1/verify',{method:'POST',body:vb}).then(function(j){var s={token:j.access_token,user:j.user&&j.user.id,exp:Date.now()+(j.expires_in||3600)*1000};if(MODE==='email')s.email=p;else s.phone=p;if(!s.token||!s.user)throw new Error('Sign-in failed.');
+   return api('/rest/v1/profiles?on_conflict=id',{method:'POST',body:MODE==='email'?{id:s.user,email:p}:{id:s.user,phone:p},prefer:'resolution=merge-duplicates,return=minimal'},s.token).then(function(){setSess(s);$('ae').textContent=''})}).catch(function(e){$('ae').textContent=e.message})}}
 else{$('dm').hidden=false}
 load().then(refresh);
 })();
